@@ -175,14 +175,13 @@ class Evaluate(keras.callbacks.Callback):
         files_id = []
         word_vecs = []
         sentences = []
-        gt_segs = []
         img_id = 0
         for data in batch_data:
             """
             {'bbox': [145, 439, 337, 639], 'cat': 0, 'segment_id': 273, 'img_name': 'COCO_train2014_000000578808.jpg', 'sentences': [{'idx': 0, 'sent_id': 773, 'sent': 'girl with hat'}, {'idx': 1, 'sent_id': 774, 'sent': 'little girl'}, {'idx': 2, 'sent_id': 775, 'sent': 'girl'}], 'sentences_num': 3}
 
             """
-            image_data, word_vec, image, sentence, seg_map = get_random_data(data, self.input_shape,
+            image_data, word_vec, image, sentence = get_random_data(data, self.input_shape,
                                                                              self.word_embed, self.config,
                                                                              train_mode=False, custom_path=True)  # box is [1,5]
             sentences.extend(sentence)
@@ -192,7 +191,6 @@ class Evaluate(keras.callbacks.Callback):
                 images.append(image_data)
                 images_ori.append(image)
                 files_id.append(img_id)
-                gt_segs.append(seg_map)
                 img_id += 1
 
         # run the model on passed images
@@ -204,8 +202,8 @@ class Evaluate(keras.callbacks.Callback):
         # resize predictions back to original
         batch_size = mask_outs.shape[0]
         for i in range(batch_size):
-            ih = gt_segs[i].shape[0]
-            iw = gt_segs[i].shape[1]
+            ih = images[i].shape[0]
+            iw = images[i].shape[1]
             w, h = self.input_shape
             scale = min(w / iw, h / ih)
             nw = int(iw * scale)

@@ -132,5 +132,8 @@ def get_random_data(ref, input_shape, embed, config, train_mode=True, max_boxes=
 
     if not train_mode:
         word_vec = [qlist_to_vec(config.word_len, sent['sent'], embed) for sent in sentences]
-        return image_data, word_vec, ori_image, sentences, seg_map[:, :, None]
+        if custom_path:
+            return image_data, word_vec, ori_image, sentences
+        else:
+            return image_data, word_vec, ori_image, sentences, seg_map[:, :, None]
     return image_data, word_vec, seg_map_data
