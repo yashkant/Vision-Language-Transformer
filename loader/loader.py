@@ -90,7 +90,7 @@ def qlist_to_vec(max_length, q_list, embed, emb_size=300):
     return glove_matrix
 
 
-def get_random_data(ref, input_shape, embed, config, train_mode=True, max_boxes=1):
+def get_random_data(ref, input_shape, embed, config, train_mode=True, max_boxes=1, custom_path=False):
     '''random preprocessing for real-time data augmentation'''
     SEG_DIR = config.seg_gt_path
     h, w = input_shape
@@ -100,7 +100,11 @@ def get_random_data(ref, input_shape, embed, config, train_mode=True, max_boxes=
     choose_index = np.random.choice(ref['sentences_num'])
 
     word_vec = qlist_to_vec(config.word_len, sentences[choose_index]['sent'], embed)
-    image = cv2.imread(os.path.join(config.image_path, ref['img_name']))
+    if custom_path:
+        image = cv2.imread(ref['img_name'])
+    else:
+        image = cv2.imread(os.path.join(config.image_path, ref['img_name']))
+
     image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
     ih, iw, _ = image.shape
     if not train_mode:
@@ -112,6 +116,7 @@ def get_random_data(ref, input_shape, embed, config, train_mode=True, max_boxes=
     dx = (w - nw) // 2
     dy = (h - nh) // 2
 
+    # pad image to input_shape (416, 416)
     image = cv2.resize(image, (nw, nh), interpolation=cv2.INTER_CUBIC)
     image_data = np.full((w, h, 3), (0.5, 0.5, 0.5))
     image_data[dy:dy+nh, dx:dx+nw, :] = image / 255.

@@ -213,6 +213,26 @@ class Tester(Executor):
             f_w.write('\n')
 
 
+class ImageSentenceTester(Executor):
+    def __init__(self, config, **kwargs):
+        super(ImageSentenceTester, self).__init__(config, **kwargs)
+
+    def build_callbacks(self):
+        # build evaluator with dummy data set to testing
+        self.evaluator = RedirectModel(Evaluate([-1]*1000, self.config, phase='test'), self.yolo_body)
+        self.evaluator.on_train_begin()
+
+    def load_data(self):
+        pass
+
+    def load_model(self, model_body):
+        model_body.load_weights(self.config.evaluate_model, by_name=False, skip_mismatch=False)
+        print('Load weights {}.'.format(self.config.evaluate_model))
+
+    def eval(self, image_paths, image_sentences):
+        self.evaluator.evaluate_on_image_sentence(image_paths, image_sentences)
+
+
 class Debugger(Executor):
     def __init__(self, config, **kwargs):
         self.config = config

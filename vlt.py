@@ -2,12 +2,13 @@ import argparse
 import os
 import numpy as np
 import tensorflow as tf
+import yaml
 from tensorflow.python.client import device_lib
 from yacs.config import CfgNode as CN
 
-from executor import Tester, Trainer, Debugger
+from executor import Tester, Trainer, Debugger, ImageSentenceTester
 
-MODES = ['train', 'test', 'debug']
+MODES = ['train', 'test', 'debug', 'select-nerf']
 
 parser = argparse.ArgumentParser()
 parser.add_argument('phase', choices=MODES)
@@ -49,14 +50,22 @@ if __name__ == "__main__":
     print("{} GPUs detected:".format(GPU_COUNTS))
     print(gpu_devices)
 
-    if __name__ == "__main__":
-        if (args.phase == 'train'):
-            trainer = Trainer(config, log_path, GPUS=GPU_COUNTS, debug=args.debug, verbose=args.verbose)
-            trainer.train()
-        elif (args.phase == 'test'):
-            tester = Tester(config, GPUS=GPU_COUNTS, debug=args.debug)
-            tester.eval()
-        elif (args.phase == 'debug'):
-            debugger = Debugger(config)
-            debugger.run()
-        print('Exited.')
+    if (args.phase == 'train'):
+        trainer = Trainer(config, log_path, GPUS=GPU_COUNTS, debug=args.debug, verbose=args.verbose)
+        trainer.train()
+    elif (args.phase == 'test'):
+        tester = Tester(config, GPUS=GPU_COUNTS, debug=args.debug)
+        tester.eval()
+    elif (args.phase == 'debug'):
+        debugger = Debugger(config)
+        debugger.run()
+    elif (args.phase == 'select-nerf'):
+        images_fol = "samples/images"
+        data = yaml.load(open("samples/sentences.yaml", "r"), Loader=yaml.BaseLoader)["sentences"]
+        image_paths, sentences = [], []
+        for k,v in data.items():
+            image_paths.append(os.path.join(images_fol, k))
+            sentences.append(v)
+        tester = ImageSentenceTester(config, GPUS=GPU_COUNTS, debug=args.debug)
+        tester.eval(image_paths, sentences)
+    print('Exited.')

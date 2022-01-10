@@ -36,6 +36,9 @@ class RedirectModel(keras.callbacks.Callback):
     def on_batch_end(self, batch, logs=None):
         self.callback.on_batch_end(batch, logs=logs)
 
+    def evaluate_on_image_sentence(self, image_paths, image_sentences, logs=None):
+        self.callback.evaluate_on_image_sentence(image_paths, image_sentences)
+
     def on_train_begin(self, logs=None):
         # overwrite the model with our custom model
         self.callback.set_model(self.redirect_model)

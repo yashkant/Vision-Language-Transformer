@@ -1,3 +1,5 @@
+import os.path
+
 import keras
 import numpy as np
 from loader.loader import get_random_data
@@ -141,6 +143,95 @@ class Evaluate(keras.callbacks.Callback):
         for item in prec_all:
             prec_all[item] /= img_id
         return pred_seg, prec_all
+
+    def evaluate_on_image_sentence(self, image_paths, image_sentences):
+        """
+        Usage:
+        image_paths = [path/to/image1.png, path/to/image2.png]
+        sentences = [ [image1_sentence1, image2_sentence2], [image2_sentence1, image2_sentence2, image2_sentence3] ]
+        """
+
+        # build batch from passed images
+        batch_data = []
+        for path, sentences in zip(image_paths, image_sentences):
+            data = {
+                'segment_id': 273,  # dummy value
+                'img_name': path,
+                'sentences': [],
+                'sentences_num': len(sentences)
+
+            }
+            assert os.path.exists(path)
+            for idx, sent in enumerate(sentences):
+                data['sentences'].append({
+                    "idx": idx,
+                    "sent": sent
+                })
+            batch_data.append(data)
+
+        # read batch-images and convert sentences to word2vec
+        images = []
+        images_ori = []
+        files_id = []
+        word_vecs = []
+        sentences = []
+        gt_segs = []
+        img_id = 0
+        for data in batch_data:
+            """
+            {'bbox': [145, 439, 337, 639], 'cat': 0, 'segment_id': 273, 'img_name': 'COCO_train2014_000000578808.jpg', 'sentences': [{'idx': 0, 'sent_id': 773, 'sent': 'girl with hat'}, {'idx': 1, 'sent_id': 774, 'sent': 'little girl'}, {'idx': 2, 'sent_id': 775, 'sent': 'girl'}], 'sentences_num': 3}
+
+            """
+            image_data, word_vec, image, sentence, seg_map = get_random_data(data, self.input_shape,
+                                                                             self.word_embed, self.config,
+                                                                             train_mode=False, custom_path=True)  # box is [1,5]
+            sentences.extend(sentence)
+            word_vecs.extend(word_vec)
+            # evaluate each sentence corresponding to the same image
+            for ___ in range(len(sentence)):
+                images.append(image_data)
+                images_ori.append(image)
+                files_id.append(img_id)
+                gt_segs.append(seg_map)
+                img_id += 1
+
+        # run the model on passed images
+        images = np.array(images)
+        word_vecs = np.array(word_vecs)
+        mask_outs = self.model.predict_on_batch([images, word_vecs])
+        mask_outs = self.sigmoid_(mask_outs)  # logit to sigmoid
+
+        # resize predictions back to original
+        batch_size = mask_outs.shape[0]
+        for i in range(batch_size):
+            ih = gt_segs[i].shape[0]
+            iw = gt_segs[i].shape[1]
+            w, h = self.input_shape
+            scale = min(w / iw, h / ih)
+            nw = int(iw * scale)
+            nh = int(ih * scale)
+            dx = (w - nw) // 2
+            dy = (h - nh) // 2
+
+            pred_seg = mask_outs[i, :, :, 0]
+            pred_seg = cv2.resize(pred_seg, self.input_shape)
+            pred_seg = pred_seg[dy:nh + dy, dx:nw + dx, ...]
+
+            # optionally dump images
+            if self.log_images:
+                log_dir = "samples/output/"
+                os.makedirs(log_dir, exist_ok=True)
+                sent = sentences[i]['sent']
+                pred_mask_img = str(files_id[i])+'_'+sent+'_pred.png'
+                ori_img = str(files_id[i])+'_'+sent+'_img.png'
+                # dump both orignal and predicted image
+                wstatus1 = cv2.imwrite(os.path.join(log_dir,pred_mask_img), pred_seg * 255)
+                wstatus3 = cv2.imwrite(os.path.join(log_dir, ori_img), images[i][dy:nh + dy, dx:nw + dx, ...] * 255)
+                if not (wstatus1 and wstatus3):
+                    import pdb
+                    pdb.set_trace()
+                else:
+                    print(f"Dumped: {pred_mask_img} and {ori_img}")
 
     def cal_seg_iou(self, gt, pred, thresh=0.5):
         t = np.array(pred > thresh)
